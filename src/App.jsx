@@ -224,7 +224,7 @@ export default function App() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-ink">
+    <div className="flex h-screen flex-col bg-ink" style={{ height: '100dvh' }}>
       <header className="border-b border-line">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
           <img
