@@ -2,6 +2,7 @@ import { useReducer, useState, useCallback } from 'react'
 import ChatWindow from './components/ChatWindow.jsx'
 import ChatInput from './components/ChatInput.jsx'
 import Disclaimer from './components/Disclaimer.jsx'
+import StripeCheckout from './components/StripeCheckout.jsx'
 import {
   initialState,
   reduce,
@@ -49,10 +50,21 @@ export default function App() {
   const [chat, dispatch] = useReducer(reduce, undefined, initialState)
   const [isTyping, setIsTyping] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  const [checkoutOpen, setCheckoutOpen] = useState(false)
 
   const addMessage = useCallback((msg) => {
     setMessages((prev) => [...prev, { id: crypto.randomUUID(), ...msg }])
   }, [])
+
+  async function handlePaymentComplete() {
+    setCheckoutOpen(false)
+    dispatch({ type: 'PAYMENT_COMPLETE' })
+    addMessage({
+      role: 'system',
+      text: '— Payment received · pulling the full report —',
+    })
+    // The actual report generation lands in phase 7.
+  }
 
   // Convert the visible message log into the wire format Anthropic expects.
   function buildHistory(extraUserMessage) {
@@ -114,6 +126,8 @@ export default function App() {
       await sleep(600)
       addMessage(PAYWALL_PROMPT)
       dispatch({ type: 'OPEN_PAYWALL' })
+      await sleep(400)
+      setCheckoutOpen(true)
     }
   }
 
@@ -155,6 +169,15 @@ export default function App() {
         placeholder={inputPlaceholder(chat)}
       />
       <Disclaimer />
+
+      <StripeCheckout
+        open={checkoutOpen}
+        onClose={() => {
+          setCheckoutOpen(false)
+          dispatch({ type: 'CLOSE_PAYWALL' })
+        }}
+        onComplete={handlePaymentComplete}
+      />
     </div>
   )
 }
