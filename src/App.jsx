@@ -11,7 +11,7 @@ import {
   shouldOpenPaywall,
   PHASES,
 } from './lib/chat-state.js'
-import { frankChat } from './lib/api.js'
+import { frankChat, frankReport } from './lib/api.js'
 
 const FRANK_GREETING = {
   id: 'greeting',
@@ -24,6 +24,46 @@ const PAYWALL_PROMPT = {
   role: 'assistant',
   text:
     "Right, I've given you the early read. If you want the full rundown — known issues for this exact model, recalls, what owners actually report, a proper price check against the market, and my verdict — that's the full report. A$4.75, one-off. Want me to pull it together?",
+}
+
+const VERDICT_LABELS = {
+  solid_find: 'Looks like a solid find',
+  closer_look: 'Worth a closer look',
+  proceed_with_caution: 'Proceed with caution',
+  keep_looking: "I'd probably keep looking",
+}
+
+// Format priority chip prefix.
+function prio(p) {
+  switch (p) {
+    case 'high': return '⚠ HIGH'
+    case 'medium': return '• MEDIUM'
+    case 'low': return '· LOW'
+    default: return '·'
+  }
+}
+
+// Convert the structured report into 8 chat bubbles (text strings), in
+// the order specified in the brief. Each bubble is shown sequentially
+// with a 1-2s typing delay between them.
+function reportToBubbles(report) {
+  const things = (report.things_to_check || [])
+    .map((t) => `${prio(t.priority)}  ${t.item}\n${t.why}`)
+    .join('\n\n')
+  const questions = (report.questions_for_seller || [])
+    .map((q, i) => `${i + 1}. ${q}`)
+    .join('\n')
+  const verdictLabel = VERDICT_LABELS[report.verdict?.tier] || 'My take'
+  return [
+    `Right, here's my full read.\n\n${report.overall_impression}`,
+    `Things I'd be checking:\n\n${things}`,
+    `Known issues for this model:\n\n${report.known_model_issues}`,
+    `What owners actually say:\n\n${report.owner_feedback}`,
+    `Recalls and TSBs:\n\n${report.recall_info}`,
+    `Price check:\n\n${report.price_assessment}`,
+    `Questions I'd ask the seller:\n\n${questions}`,
+    `My verdict — ${verdictLabel}.\n\n${report.verdict?.summary || ''}`,
+  ]
 }
 
 // Split a response into multiple bubbles on blank-line boundaries.
@@ -63,7 +103,41 @@ export default function App() {
       role: 'system',
       text: '— Payment received · pulling the full report —',
     })
-    // The actual report generation lands in phase 7.
+
+    // Generate the report from the existing transcript.
+    let report
+    try {
+      const wireMessages = messages
+        .filter((m) => m.role === 'user' || m.role === 'assistant')
+        .map((m) => ({ role: m.role, text: m.text || '' }))
+      const result = await frankReport({ messages: wireMessages })
+      report = result.report
+    } catch (err) {
+      addMessage({
+        role: 'assistant',
+        text:
+          "Bugger — the line dropped while I was writing the report. Refresh and let me know — we'll sort it out, payment's accounted for.",
+      })
+      setErrorMsg(err.message || 'Report generation failed.')
+      return
+    }
+
+    // Render 8 sections as separate bubbles, 1-2s typing delay between each.
+    const bubbles = reportToBubbles(report)
+    for (let i = 0; i < bubbles.length; i++) {
+      setIsTyping(true)
+      await sleep(1000 + Math.floor(Math.random() * 1000))
+      setIsTyping(false)
+      addMessage({ role: 'assistant', text: bubbles[i] })
+    }
+
+    await sleep(600)
+    addMessage({
+      role: 'assistant',
+      text:
+        "That's the lot. Got 10 follow-up questions on the house — fire away.",
+    })
+    dispatch({ type: 'REPORT_DELIVERED' })
   }
 
   // Convert the visible message log into the wire format Anthropic expects.
