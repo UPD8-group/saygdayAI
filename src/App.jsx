@@ -73,17 +73,27 @@ export default function App() {
     }
   }
 
-  async function handleSend({ text }) {
+  async function handleSend({ text, image }) {
     setErrorMsg('')
-    const userMsg = { role: 'user', text }
+    const userMsg = {
+      role: 'user',
+      text,
+      image: image ? image.preview : undefined,
+    }
     addMessage(userMsg)
     dispatch({ type: 'USER_MESSAGE_SENT' })
 
     const mode = chat.phase === PHASES.FOLLOWUP ? 'followup' : 'teaser'
 
+    // Strip the preview before sending — Anthropic only needs media_type + data.
+    const wireImage = image
+      ? { media_type: image.media_type, data: image.data }
+      : undefined
+
     try {
       const { text: reply } = await frankChat({
         messages: buildHistory(userMsg),
+        image: wireImage,
         mode,
       })
       await deliverFrankReply(reply)
