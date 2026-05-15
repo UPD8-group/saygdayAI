@@ -75,11 +75,21 @@ Never commit a real key.
 
 ## Deploy
 
-1. Push `main` to GitHub.
-2. Connect the repo in Netlify. Build settings come from `netlify.toml`.
-3. Add the env vars above in Netlify.
-4. Configure the Stripe webhook endpoint at `https://<your-netlify-site>/api/stripe-webhook` and copy the signing secret into `STRIPE_WEBHOOK_SECRET`.
-5. Custom domain `mechanicfrank.com` — point DNS once Netlify is happy.
+1. Push to GitHub.
+2. **Netlify → Add new site → Import existing project**, pick the repo. Build settings come from `netlify.toml` — no manual config needed.
+3. **Netlify → Site settings → Environment variables**, add every key listed above. Use Stripe **test** keys for now.
+4. After the first deploy, **Stripe Dashboard → Developers → Webhooks → Add endpoint**, set URL `https://<your-netlify-site>/api/stripe-webhook`, listen for `checkout.session.completed`, then copy the signing secret into `STRIPE_WEBHOOK_SECRET` and redeploy.
+5. **Netlify → Domain management**, add `mechanicfrank.com`, follow the DNS instructions.
+6. Trigger a redeploy after env-var changes so Functions pick them up.
+
+### Smoke test on the live site
+
+1. Open the URL — Frank's greeting visible.
+2. Paste any used-car listing (Carsales URL or screenshot).
+3. Send five user messages — paywall + Embedded Checkout should appear.
+4. Pay with the Stripe test card `4242 4242 4242 4242`, any future expiry, any CVC.
+5. The 8-section report streams in as separate bubbles.
+6. Ask up to 10 follow-ups, then Frank signs off.
 
 ## Disclaimer
 
