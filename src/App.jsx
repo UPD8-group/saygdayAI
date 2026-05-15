@@ -9,6 +9,7 @@ import {
   inputDisabled,
   inputPlaceholder,
   shouldOpenPaywall,
+  shouldSignOff,
   PHASES,
 } from './lib/chat-state.js'
 import { frankChat, frankReport } from './lib/api.js'
@@ -202,6 +203,23 @@ export default function App() {
       dispatch({ type: 'OPEN_PAYWALL' })
       await sleep(400)
       setCheckoutOpen(true)
+      return
+    }
+
+    // Sign off after the 10th follow-up question.
+    if (
+      shouldSignOff({
+        ...chat,
+        followupUserCount: chat.followupUserCount + 1,
+      })
+    ) {
+      await sleep(800)
+      addMessage({
+        role: 'assistant',
+        text:
+          "That's our ten. I reckon you've got what you need to go take a proper look in person. Take a torch, take your time, and don't be shy about walking away if something doesn't sit right. Good luck with it — hope it ends up being the one.",
+      })
+      dispatch({ type: 'SIGN_OFF' })
     }
   }
 
