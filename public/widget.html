@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SayGday AI Chat</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --brand:      #10b981;   /* emerald-500 */
+      --brand-dark: #059669;
+      --bg:         #0f172a;   /* slate-900  */
+      --surface:    #1e293b;   /* slate-800  */
+      --border:     rgba(255,255,255,0.08);
+      --text:       #f1f5f9;
+      --muted:      #94a3b8;
+      --radius:     16px;
+    }
+
+    html, body {
+      height: 100%;
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: transparent;
+      overflow: hidden;
+    }
+
+    /* ── Launcher bubble (always visible when collapsed) ── */
+    #launcher {
+      position: fixed;
+      bottom: 0; right: 0;
+      width: 64px; height: 64px;
+      background: var(--brand);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(16,185,129,0.45);
+      transition: background 0.2s, transform 0.2s;
+      z-index: 10;
+      border: none;
+      outline: none;
+    }
+    #launcher:hover { background: var(--brand-dark); transform: scale(1.07); }
+    #launcher svg  { width: 28px; height: 28px; fill: white; flex-shrink: 0; }
+
+    /* ── Chat window ── */
+    #chat-window {
+      display: none;
+      flex-direction: column;
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    #chat-window.open { display: flex; }
+
+    /* Header */
+    #chat-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 16px;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #chat-header .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 600;
+      font-size: 15px;
+      color: var(--text);
+    }
+    #chat-header .brand-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--brand);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50%       { opacity: 0.4; }
+    }
+    #close-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      transition: color 0.2s, background 0.2s;
+      display: flex;
+      align-items: center;
+    }
+    #close-btn:hover { color: var(--text); background: var(--border); }
+    #close-btn svg { width: 18px; height: 18px; }
+
+    /* Messages */
+    #messages {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    #messages::-webkit-scrollbar { width: 4px; }
+    #messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+    .msg {
+      max-width: 85%;
+      padding: 10px 14px;
+      border-radius: 12px;
+      font-size: 14px;
+      line-height: 1.55;
+      word-break: break-word;
+    }
+    .msg.bot {
+      background: var(--surface);
+      color: var(--text);
+      align-self: flex-start;
+      border-bottom-left-radius: 4px;
+    }
+    .msg.user {
+      background: var(--brand);
+      color: white;
+      align-self: flex-end;
+      border-bottom-right-radius: 4px;
+    }
+    .msg.typing {
+      background: var(--surface);
+      color: var(--muted);
+      align-self: flex-start;
+    }
+
+    /* Input bar */
+    #input-bar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 14px;
+      border-top: 1px solid var(--border);
+      background: var(--surface);
+      flex-shrink: 0;
+    }
+    #user-input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      color: var(--text);
+      font-size: 14px;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+      resize: none;
+      font-family: inherit;
+      line-height: 1.4;
+    }
+    #user-input::placeholder { color: var(--muted); }
+    #user-input:focus { border-color: var(--brand); }
+
+    #send-btn {
+      background: var(--brand);
+      border: none;
+      border-radius: 10px;
+      color: white;
+      cursor: pointer;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s;
+      flex-shrink: 0;
+    }
+    #send-btn:hover    { background: var(--brand-dark); }
+    #send-btn:disabled { opacity: 0.5; cursor: default; }
+    #send-btn svg { width: 18px; height: 18px; }
+
+    /* Powered-by */
+    #powered-by {
+      text-align: center;
+      font-size: 11px;
+      color: var(--muted);
+      padding: 6px 0 10px;
+      flex-shrink: 0;
+    }
+    #powered-by a { color: var(--brand); text-decoration: none; }
+  </style>
+</head>
+<body>
+
+  <!-- ── Launcher bubble ── -->
+  <button id="launcher" aria-label="Open chat">
+    <!-- Chat bubble icon -->
+    <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+      <path d="M20 2H4C2.9 2 2 2.9 2 4v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/>
+    </svg>
+  </button>
+
+  <!-- ── Chat window ── -->
+  <div id="chat-window" role="dialog" aria-modal="true" aria-label="SayGday AI Chat">
+
+    <!-- Header -->
+    <div id="chat-header">
+      <div class="brand">
+        <div class="brand-dot"></div>
+        <span>🦘 Say G'day AI</span>
+      </div>
+      <button id="close-btn" aria-label="Close chat">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round">
+          <line x1="18" y1="6" x2="6" y2="18"/>
+          <line x1="6"  y1="6" x2="18" y2="18"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Messages -->
+    <div id="messages" role="log" aria-live="polite">
+      <div class="msg bot">
+        G'day! 👋 I'm your AI assistant. Ask me anything about this business!
+      </div>
+    </div>
+
+    <!-- Input bar -->
+    <div id="input-bar">
+      <textarea
+        id="user-input"
+        rows="1"
+        placeholder="Type your message…"
+        aria-label="Chat message input"
+      ></textarea>
+      <button id="send-btn" aria-label="Send message">
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Powered-by -->
+    <div id="powered-by">
+      Powered by <a href="https://saygday.ai" target="_blank" rel="noopener">Say G'day AI</a>
+    </div>
+
+  </div>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // ── 1. Parse clientId from this page's own URL ────────────────────────
+      var clientId = new URLSearchParams(window.location.search).get('clientId') || 'UNKNOWN';
+
+      // ── 2. DOM refs ───────────────────────────────────────────────────────
+      var launcher    = document.getElementById('launcher');
+      var chatWindow  = document.getElementById('chat-window');
+      var messagesEl  = document.getElementById('messages');
+      var userInput   = document.getElementById('user-input');
+      var sendBtn     = document.getElementById('send-btn');
+      var closeBtn    = document.getElementById('close-btn');
+
+      var isOpen  = false;
+      var loading = false;
+
+      // ── 3. Toggle helpers (also notify parent via postMessage) ────────────
+      function openChat() {
+        isOpen = true;
+        launcher.style.display = 'none';
+        chatWindow.classList.add('open');
+        userInput.focus();
+        window.parent.postMessage({ source: 'saygday-widget', type: 'OPEN' }, '*');
+      }
+
+      function closeChat() {
+        isOpen = false;
+        chatWindow.classList.remove('open');
+        launcher.style.display = '';
+        window.parent.postMessage({ source: 'saygday-widget', type: 'CLOSE' }, '*');
+      }
+
+      launcher.addEventListener('click', openChat);
+      closeBtn.addEventListener('click', closeChat);
+
+      // ── 4. Append a message bubble ────────────────────────────────────────
+      function appendMsg(text, role) {
+        var div = document.createElement('div');
+        div.className = 'msg ' + role;
+        div.textContent = text;
+        messagesEl.appendChild(div);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+        return div;
+      }
+
+      // ── 5. Send message to /api/chat ──────────────────────────────────────
+      async function sendMessage() {
+        var text = userInput.value.trim();
+        if (!text || loading) return;
+
+        appendMsg(text, 'user');
+        userInput.value = '';
+        autoResize();
+
+        loading = true;
+        sendBtn.disabled = true;
+
+        var typingEl = appendMsg('Thinking…', 'typing');
+
+        try {
+          var res = await fetch('/api/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: text, clientId: clientId }),
+          });
+
+          var data = await res.json();
+          typingEl.remove();
+          appendMsg(data.reply || 'Sorry, something went wrong.', 'bot');
+        } catch (err) {
+          typingEl.remove();
+          appendMsg('Network error — please try again.', 'bot');
+        } finally {
+          loading = false;
+          sendBtn.disabled = false;
+          userInput.focus();
+        }
+      }
+
+      sendBtn.addEventListener('click', sendMessage);
+
+      // Send on Enter (Shift+Enter for new line)
+      userInput.addEventListener('keydown', function (e) {
+        if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          sendMessage();
+        }
+      });
+
+      // ── 6. Auto-resize textarea ───────────────────────────────────────────
+      function autoResize() {
+        userInput.style.height = 'auto';
+        userInput.style.height = Math.min(userInput.scrollHeight, 120) + 'px';
+      }
+      userInput.addEventListener('input', autoResize);
+
+      // ── 7. Listen for postMessage from parent (e.g. a programmatic open) ──
+      window.addEventListener('message', function (event) {
+        var data = event.data;
+        if (!data || data.source !== 'saygday-host') return;
+        if (data.type === 'OPEN')  openChat();
+        if (data.type === 'CLOSE') closeChat();
+      });
+    })();
+  </script>
+</body>
+</html>

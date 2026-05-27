@@ -1,8 +1,27 @@
 [build]
-  command = "npm run build"
-  publish = "dist"
+  command   = "npm run build"
+  publish   = "dist"
+  functions = "netlify/functions"
+
+# ── API routes → Netlify Functions ────────────────────────────────────────────
+[[redirects]]
+  from   = "/api/*"
+  to     = "/.netlify/functions/api/:splat"
+  status = 200
+
+# ── Static widget assets (copied to dist/ by the build script) ────────────────
+[[redirects]]
+  from   = "/embed.js"
+  to     = "/embed.js"
+  status = 200
 
 [[redirects]]
-  from = "/*"
-  to = "/index.html"
+  from   = "/widget.html"
+  to     = "/widget.html"
+  status = 200
+
+# ── SPA fallback — must be last ───────────────────────────────────────────────
+[[redirects]]
+  from   = "/*"
+  to     = "/index.html"
   status = 200
