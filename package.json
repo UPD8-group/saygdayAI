@@ -1,18 +1,23 @@
 {
-  "name": "saygday-marketing",
+  "name": "saygday-ai",
   "private": true,
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && cp -r public/. dist/",
     "preview": "vite preview"
   },
   "dependencies": {
+    "cheerio": "^1.2.0",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.2.1",
     "lucide-react": "^0.441.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "react-router-dom": "^6.26.2"
+    "react-router-dom": "^6.26.2",
+    "serverless-http": "^4.0.0"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.1",
